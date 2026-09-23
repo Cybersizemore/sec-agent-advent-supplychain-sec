@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-governance.cloud.google.com/schemas/sat-lock-v1.json",
+  "version": "1.0.0",
+  "name": "enterprise-agent-governance-sat-lock",
+  "declared_skills": {
+    "clean_weather_skill": {
+      "allowed_capabilities": [
+        "get_weather"
+      ],
+      "allowed_network_domains": [
+        "api.weather.gov"
+      ],
+      "allowed_env_vars": [],
+      "filesystem_access": "read_only",
+      "integrity_hash": "sha256:d8a221f7c2317f22a59a96e83efb1c97a82910"
+    }
+  },
+  "policy": {
+    "block_undeclared_egress": true,
+    "block_environment_harvesting": true,
+    "block_prompt_injection": true,
+    "require_asbom": true
+  }
+}

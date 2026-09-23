@@ -1,0 +1,41 @@
+name: Supply-Chain Safety: Tool & Skill Verification Gate
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'sat.lock'
+      - 'verify_skill_gate.py'
+  push:
+    branches:
+      - main
+
+jobs:
+  verify-skills:
+    name: SkillSpector Capability Boundary Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv and SkillSpector
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          $HOME/.local/bin/uv tool install git+https://github.com/NVIDIA/skillspector.git
+
+      - name: Verify Clean Skill (Expected: PASS)
+        run: |
+          python3 verify_skill_gate.py ./skills/clean_weather_skill sat.lock
+
+      - name: Upload ASBOM Artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-software-bill-of-materials
+          path: asbom.json
