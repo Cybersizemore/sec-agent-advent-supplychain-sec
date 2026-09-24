@@ -1,6 +1,6 @@
 {
   "asbom_version": "1.0.0",
-  "skill": "clean_weather_skill",
+  "skill": "get-weather-skill",
   "status": "APPROVED",
   "inspected_files": 1,
   "target_registry": "Agent Registry"

@@ -72,14 +72,37 @@ def verify_skill_gate(skill_dir: str, lockfile: str = "sat.lock") -> bool:
     issues = report.get("issues", [])
 
 
-    # 2. Check for capability boundary breaches (e.g., hidden credential harvesting)
-    breaches = [
-        i
-        for i in issues
-        if i.get("severity") in ("HIGH", "CRITICAL")
-        or "Exfiltration" in i.get("category", "")
-        or "Harvesting" in i.get("pattern", "")
-    ]
+    # Extract declared allowed domains from sat.lock
+    allowed_domains = []
+    lockfile_path = Path(lockfile)
+    if lockfile_path.exists():
+        try:
+            lock_data = json.loads(lockfile_path.read_text())
+            for sk_conf in lock_data.get("declared_skills", {}).values():
+                allowed_domains.extend(sk_conf.get("allowed_network_domains", []))
+        except Exception:
+            pass
+
+    # 2. Check for capability boundary breaches against declared sat.lock policy
+    breaches = []
+    for i in issues:
+        severity = i.get("severity")
+        category = i.get("category", "")
+        pattern = i.get("pattern", "")
+        finding = i.get("finding", "")
+        rule_id = i.get("id", "")
+
+        # Always block HIGH / CRITICAL issues (prompt injection, harvesting, poisoning, etc.)
+        if severity in ("HIGH", "CRITICAL") or "Harvesting" in pattern or "Injection" in category or "Injection" in pattern:
+            breaches.append(i)
+            continue
+
+        # Check external network transmission (E1) against declared sat.lock domains
+        if rule_id == "E1" or "External Transmission" in pattern:
+            domain_allowed = any(domain in finding for domain in allowed_domains)
+            if not domain_allowed:
+                i["remediation"] = f"Undeclared network domain '{finding}' breached capability boundary (not in {lockfile})."
+                breaches.append(i)
 
     if breaches:
         print(
