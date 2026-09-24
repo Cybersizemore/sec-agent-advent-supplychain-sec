@@ -97,8 +97,28 @@ def verify_skill_gate(skill_dir: str, lockfile: str = "sat.lock") -> bool:
     return True
 
 
+def scan_all_skills(skills_dir: str = "./skills", lockfile: str = "sat.lock") -> bool:
+    """Scan all skill directories found under skills_dir."""
+    p = Path(skills_dir)
+    skill_dirs = [d for d in p.iterdir() if d.is_dir() and (d / "SKILL.md").exists()]
+    if not skill_dirs:
+        print(f"[*] No skill packages found in {skills_dir}")
+        return True
+    all_passed = True
+    for d in sorted(skill_dirs):
+        if not verify_skill_gate(str(d), lockfile):
+            all_passed = False
+    return all_passed
+
+
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else "./skills/clean_weather_skill"
-    lock = sys.argv[2] if len(sys.argv) > 2 else "sat.lock"
-    success = verify_skill_gate(target, lock)
+    if len(sys.argv) > 1 and sys.argv[1] == "--all":
+        target = sys.argv[2] if len(sys.argv) > 2 else "./skills"
+        lock = sys.argv[3] if len(sys.argv) > 3 else "sat.lock"
+        success = scan_all_skills(target, lock)
+    else:
+        target = sys.argv[1] if len(sys.argv) > 1 else "./skills/clean_weather_skill"
+        lock = sys.argv[2] if len(sys.argv) > 2 else "sat.lock"
+        success = verify_skill_gate(target, lock)
     sys.exit(0 if success else 1)
+
