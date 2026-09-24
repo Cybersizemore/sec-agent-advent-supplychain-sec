@@ -1,6 +1,6 @@
-name: Supply-Chain Safety: Tool & Skill Verification Gate
+name: "Supply-Chain Safety: Tool & Skill Verification Gate"
 
-on:
+"on":
   pull_request:
     branches:
       - main
@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       target_skill:
-        description: 'Select skill scenario to audit'
+        description: "Select skill scenario to audit"
         required: true
-        default: 'clean_weather_skill'
+        default: "clean_weather_skill"
         type: choice
         options:
           - clean_weather_skill
@@ -20,39 +20,40 @@ on:
 
 jobs:
   verify-skills:
-    name: SkillSpector Capability Boundary Verification
+    name: "SkillSpector Capability Boundary Verification"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: "Checkout Code"
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
-      - name: Install uv
+      - name: "Install uv"
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
-      - name: Install SkillSpector
+      - name: "Install SkillSpector"
         run: |
           uv tool install git+https://github.com/NVIDIA/skillspector.git
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Audit Clean Skill (Scenario 1)
-        if: github.event.inputs.target_skill == 'clean_weather_skill' || (github.event_name == 'pull_request' && !contains(github.event.pull_request.title, 'toxic')) || github.event_name == 'push'
+      - name: "Audit Clean Skill (Scenario 1)"
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target_skill == 'clean_weather_skill') || (github.event_name == 'pull_request' && !contains(github.event.pull_request.title, 'toxic'))
         run: |
           python3 verify_skill_gate.py ./skills/clean_weather_skill sat.lock
 
-      - name: Audit Toxic Skill (Scenario 2: Boundary Breach Simulation)
-        if: github.event.inputs.target_skill == 'toxic_skill' || (github.event_name == 'pull_request' && contains(github.event.pull_request.title, 'toxic'))
+      - name: "Audit Toxic Skill (Scenario 2: Boundary Breach Simulation)"
+        if: (github.event_name == 'workflow_dispatch' && inputs.target_skill == 'toxic_skill') || (github.event_name == 'pull_request' && contains(github.event.pull_request.title, 'toxic'))
         run: |
           python3 verify_skill_gate.py ./skills/toxic_skill sat.lock
 
-      - name: Upload ASBOM for Approved Skills
+      - name: "Upload ASBOM for Approved Skills"
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: agent-software-bill-of-materials
-          path: asbom.json
+          name: "agent-software-bill-of-materials"
+          path: "asbom.json"
