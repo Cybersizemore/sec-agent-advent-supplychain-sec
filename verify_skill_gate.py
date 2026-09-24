@@ -14,13 +14,17 @@ from pathlib import Path
 
 
 def get_skillspector_bin() -> str:
-    """Find the skillspector binary on PATH or local user bin."""
+    """Find the skillspector binary on PATH or common local user bin directories."""
     path_bin = shutil.which("skillspector")
     if path_bin:
         return path_bin
-    user_bin = Path.home() / ".local" / "bin" / "skillspector"
-    if user_bin.exists():
-        return str(user_bin)
+    for candidate in [
+        Path.home() / ".local" / "bin" / "skillspector",
+        Path.home() / ".cargo" / "bin" / "skillspector",
+        Path("/root/.local/bin/skillspector"),
+    ]:
+        if candidate.exists():
+            return str(candidate)
     return "skillspector"
 
 
@@ -30,6 +34,12 @@ def verify_skill_gate(skill_dir: str, lockfile: str = "sat.lock") -> bool:
     print(f"=======================================================")
 
     bin_path = get_skillspector_bin()
+    report_file = Path("report.json")
+    if report_file.exists():
+        try:
+            report_file.unlink()
+        except OSError:
+            pass
 
     # 1. Execute SkillSpector static scan (optional: set SKILLSPECTOR_MODEL=gemini-3.1-pro-preview)
     cmd = [
@@ -39,17 +49,28 @@ def verify_skill_gate(skill_dir: str, lockfile: str = "sat.lock") -> bool:
         "--no-llm",
         "--format",
         "json",
+        "--output",
+        "report.json",
     ]
     res = subprocess.run(cmd, capture_output=True, text=True)
 
-    try:
-        raw_json = res.stdout[res.stdout.find("{") :]
-        report = json.loads(raw_json)
-    except Exception as e:
-        print(f"[!] Scan parsing failed: {e}\n{res.stderr}")
-        return False
+    report = {}
+    if report_file.exists():
+        try:
+            report = json.loads(report_file.read_text())
+        except Exception:
+            pass
+
+    if not report:
+        try:
+            raw_json = res.stdout[res.stdout.find("{") :]
+            report = json.loads(raw_json)
+        except Exception as e:
+            print(f"[!] Scan parsing failed: {e}\nstdout: {res.stdout}\nstderr: {res.stderr}")
+            return False
 
     issues = report.get("issues", [])
+
 
     # 2. Check for capability boundary breaches (e.g., hidden credential harvesting)
     breaches = [
