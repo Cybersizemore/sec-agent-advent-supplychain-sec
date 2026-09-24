@@ -26,6 +26,8 @@ CLEAN_EXIT=$?
 
 if [ $CLEAN_EXIT -eq 0 ]; then
     echo -e "${GREEN}[✔] SUCCESS: Clean skill verified, ASBOM generated, approved for Agent Registry!${NC}"
+    echo -e "\n${YELLOW}>>> REGISTERING CERTIFIED SKILL TO AGENT PLATFORM REGISTRY...${NC}"
+    python3 register_skill.py ./skills/clean_weather_skill asbom.json
 else
     echo -e "${RED}[✕] UNEXPECTED: Clean skill failed.${NC}"
 fi

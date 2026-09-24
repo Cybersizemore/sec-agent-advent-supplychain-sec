@@ -39,6 +39,7 @@ flowchart TD
     Check -- "No (Clean Skill)" --> Lock["Verify SAT Lockfile<br/>(sat.lock)"]
     Lock --> ASBOM["Generate Certified ASBOM<br/>(asbom.json)"]
     ASBOM --> Registry["Approved for Agent Registry<br/>(Exit Code 0)"]
+    Registry --> Publish["Register to Agent Platform<br/>(register_skill.py)"]
     
     Check -- "Yes (Toxic Skill)" --> Alert["Detect Capability Breach<br/>(e.g., os.environ harvesting)"]
     Alert --> Block["Block PR Merge in GitHub Actions<br/>(Exit Code 1)"]
@@ -85,6 +86,7 @@ flowchart TD
 │       └── SKILL.md               # Skill with hidden credential harvesting
 ├── DEMO_SCRIPT.md                 # Practice guide & script for video recording
 ├── README.md                      # Project documentation
+├── register_skill.py              # Automated registration to Agent Platform Skills Catalog
 ├── run_demo.sh                    # Rehearsal runner for terminal demo & hype GIF
 ├── sat.lock                       # Declared SAT capability lockfile
 └── verify_skill_gate.py           # Core Python CI/CD verification gate

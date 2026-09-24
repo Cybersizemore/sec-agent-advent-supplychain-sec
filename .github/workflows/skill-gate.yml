@@ -51,9 +51,16 @@ jobs:
         run: |
           python3 verify_skill_gate.py ./skills/toxic_skill sat.lock
 
-      - name: "Upload ASBOM for Approved Skills"
+      - name: "Register Approved Skill to Agent Platform Skills Registry"
+        if: success() && (github.event_name == 'push' || inputs.target_skill == 'clean_weather_skill')
+        run: |
+          python3 register_skill.py ./skills/clean_weather_skill asbom.json
+
+      - name: "Upload Certified Skill Package & ASBOM"
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: "agent-software-bill-of-materials"
-          path: "asbom.json"
+          name: "agent-platform-certified-skill"
+          path: |
+            asbom.json
+            registered_*_manifest.json

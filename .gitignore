@@ -5,3 +5,5 @@ __pycache__/
 env/
 venv/
 *.sarif
+report.json
+registered_*_manifest.json

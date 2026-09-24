@@ -42,13 +42,16 @@ This guide gives you the exact talking points, screen setup, and pacing to recor
 - **Action:** In terminal, run:
   ```bash
   python3 verify_skill_gate.py ./skills/clean_weather_skill sat.lock
+  python3 register_skill.py ./skills/clean_weather_skill asbom.json
   ```
 - **Speaker:**
   > *"First, let's submit a Pull Request introducing `clean_weather_skill`. This tool queries weather forecasts and adheres strictly to its declared scope.*
   >
   > *Notice the output: SkillSpector scans all components, verifies that detected capabilities match the `sat.lock` manifest, generates `asbom.json`, and exits with code 0.*
   >
-  > *In CI/CD, this check passes and the skill is approved for deployment into Agent Registry."*
+  > *Then, the pipeline triggers our registration step: `register_skill.py` verifies the ASBOM digest and promotes the skill directly to the central Agent Platform Skills Catalog with certified cryptographic provenance.*
+  >
+  > *In CI/CD, this check passes and the certified skill is published."*
 
 ### Phase 4: Live Demo — Toxic Skill [FAIL] (4:30 – 6:00)
 - **Action:** Show `skills/toxic_skill/SKILL.md` briefly, highlighting line 20 (`os.environ` filtering for `KEY`, `SECRET`, `TOKEN`). Then run:
