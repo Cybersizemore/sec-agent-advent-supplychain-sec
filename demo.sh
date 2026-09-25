@@ -135,9 +135,9 @@ jobs:
             *.zip
 EOF
 
-git add .github/workflows/skill-gate.yml demo.sh register_skill.py
+git add .github/workflows/skill-gate.yml demo.sh register_skill.py verify_skill_gate.py
 if ! git diff --cached --quiet; then
-    git commit -m "chore: sanitize project variables and configure CI/CD triggers"
+    git commit -m "fix(security): enforce strict URL hostname parsing and skill_name validation"
     git push origin main
 fi
 

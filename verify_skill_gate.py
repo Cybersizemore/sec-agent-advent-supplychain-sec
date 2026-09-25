@@ -7,10 +7,33 @@ declared capability boundaries via SAT lockfiles, and generates verifiable ASBOM
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
+
+
+def is_domain_allowed(finding: str, allowed_domains: list[str]) -> bool:
+    """Strictly validate that all URLs in finding match allowed_domains by parsed hostname."""
+    if not allowed_domains:
+        return False
+    urls = re.findall(r"https?://[^\s\"')\]>]+", finding)
+    if not urls and "://" not in finding:
+        candidate = finding.strip().split("/")[0]
+        if candidate:
+            urls = [f"https://{candidate}"]
+    if not urls:
+        return False
+    normalized_allowed = [d.strip().lower() for d in allowed_domains if d.strip()]
+    for raw_url in urls:
+        host = (urlparse(raw_url).hostname or "").lower().rstrip(".")
+        if not host:
+            return False
+        if not any(host == d or host.endswith("." + d) for d in normalized_allowed):
+            return False
+    return True
 
 
 def get_skillspector_bin() -> str:
@@ -99,7 +122,7 @@ def verify_skill_gate(skill_dir: str, lockfile: str = "sat.lock") -> bool:
 
         # Check external network transmission (E1) against declared sat.lock domains
         if rule_id == "E1" or "External Transmission" in pattern:
-            domain_allowed = any(domain in finding for domain in allowed_domains)
+            domain_allowed = is_domain_allowed(finding, allowed_domains)
             if not domain_allowed:
                 i["remediation"] = f"Undeclared network domain '{finding}' breached capability boundary (not in {lockfile})."
                 breaches.append(i)

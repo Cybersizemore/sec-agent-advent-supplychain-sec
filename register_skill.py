@@ -8,6 +8,7 @@ is cryptographically verified against the declared SAT lockfile.
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -50,11 +51,20 @@ def register_skill(skill_dir: str, asbom_path: str = "asbom.json") -> bool:
         return False
 
     skill_hash = compute_sha256(skill_md)
-    skill_name = asbom.get("skill", skill_path.name)
+    raw_skill_name = str(asbom.get("skill", skill_path.name))
+    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}", raw_skill_name):
+        print(f"[!] Error: Invalid skill name '{raw_skill_name}'. Registration denied.")
+        return False
+    skill_name = raw_skill_name
     version = asbom.get("asbom_version", "1.0.0")
 
+    base_dir = Path.cwd().resolve()
+
     # 1. Package skill into Agent Registry compliant ZIP payload (< 500 KB)
-    zip_path = Path(f"{skill_name}.zip")
+    zip_path = (base_dir / f"{skill_name}.zip").resolve()
+    if zip_path.parent != base_dir:
+        print("[!] Error: Path traversal attempt detected in zip_path.")
+        return False
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         z.write(skill_md, arcname="SKILL.md")
     print(f"[*] Packaged Agent Registry payload: {zip_path.name} ({zip_path.stat().st_size} bytes)")
@@ -85,7 +95,10 @@ def register_skill(skill_dir: str, asbom_path: str = "asbom.json") -> bool:
         }
     }
 
-    output_path = Path(f"registered_{skill_name}_manifest.json")
+    output_path = (base_dir / f"registered_{skill_name}_manifest.json").resolve()
+    if output_path.parent != base_dir:
+        print("[!] Error: Path traversal attempt detected in output_path.")
+        return False
     output_path.write_text(json.dumps(registration_manifest, indent=2))
 
     print(f"[*] Skill Name    : {skill_name}")
