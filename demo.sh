@@ -117,7 +117,7 @@ jobs:
           success() &&
           ((github.event_name == 'push' && !contains(github.ref_name, 'toxic')) || inputs.target_skill == 'clean_weather_skill')
         env:
-          GCP_PROJECT: ${{ vars.GCP_PROJECT_ID || 'k8-and-storage-project' }}
+          GCP_PROJECT: ${{ vars.GCP_PROJECT_ID || 'your-gcp-project-id' }}
           GCP_LOCATION: ${{ vars.GCP_LOCATION || 'global' }}
         run: |
           python3 register_skill.py ./skills/clean_weather_skill asbom.json
@@ -135,9 +135,9 @@ jobs:
             *.zip
 EOF
 
-git add .github/workflows/skill-gate.yml demo.sh
+git add .github/workflows/skill-gate.yml demo.sh register_skill.py
 if ! git diff --cached --quiet; then
-    git commit -m "ci: enable push triggers for test/clean and test/toxic branches with WIF"
+    git commit -m "chore: sanitize project variables and configure CI/CD triggers"
     git push origin main
 fi
 

@@ -60,7 +60,7 @@ def register_skill(skill_dir: str, asbom_path: str = "asbom.json") -> bool:
     print(f"[*] Packaged Agent Registry payload: {zip_path.name} ({zip_path.stat().st_size} bytes)")
 
     # 2. Save certified release manifest
-    gcp_project = os.getenv("GCP_PROJECT", "k8-and-storage-project")
+    gcp_project = os.getenv("GCP_PROJECT", "your-gcp-project-id")
     gcp_location = os.getenv("GCP_LOCATION", "global")
     agent_registry_urn = f"urn:skill:projects-{gcp_project}:locations:{gcp_location}:private-{skill_name}"
     agent_registry_resource = f"projects/{gcp_project}/locations/{gcp_location}/skills/private-{skill_name}"
@@ -97,7 +97,7 @@ def register_skill(skill_dir: str, asbom_path: str = "asbom.json") -> bool:
 
     # 3. Live Google Cloud Agent Registry Publication (via gcloud CLI if available)
     gcloud_bin = shutil.which("gcloud")
-    if gcloud_bin:
+    if gcloud_bin and gcp_project != "your-gcp-project-id":
         print(f"\n[*] Attempting live registration via gcloud alpha agent-registry...")
         try:
             # Check if skill container already exists
