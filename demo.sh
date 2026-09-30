@@ -137,13 +137,20 @@ EOF
 
 git add .github/workflows/skill-gate.yml demo.sh register_skill.py verify_skill_gate.py
 if ! git diff --cached --quiet; then
-    git commit -m "fix(security): enforce strict URL hostname parsing and skill_name validation"
+    git commit -m "fix(registry): auto-detect active gcloud project and publish active revision during demo"
     git push origin main
 fi
 
-# 2. Push Good (Clean) Skill Branch
+# 2. Verify Clean Skill & Register Live to Google Cloud Agent Registry
 echo -e "\n${BLUE}${BOLD}----------------------------------------------------------------------${NC}"
-echo -e "${BLUE}${BOLD}🚀 1/2: PUSHING GOOD SKILL SCENARIO (test/clean-weather-skill)${NC}"
+echo -e "${BLUE}${BOLD}🛡️  STEP 1/3: VERIFYING CLEAN SKILL & REGISTERING TO AGENT REGISTRY${NC}"
+echo -e "${BLUE}${BOLD}----------------------------------------------------------------------${NC}"
+python3 verify_skill_gate.py ./skills/clean_weather_skill sat.lock
+python3 register_skill.py ./skills/clean_weather_skill asbom.json
+
+# 3. Push Good (Clean) Skill Branch
+echo -e "\n${BLUE}${BOLD}----------------------------------------------------------------------${NC}"
+echo -e "${BLUE}${BOLD}🚀 STEP 2/3: PUSHING GOOD SKILL SCENARIO (test/clean-weather-skill)${NC}"
 echo -e "${BLUE}${BOLD}----------------------------------------------------------------------${NC}"
 
 git checkout -B test/clean-weather-skill main
@@ -153,9 +160,9 @@ git commit -m "feat: verify clean weather skill [$(date -u +%H:%M:%S)]"
 git push -u origin test/clean-weather-skill --force
 echo -e "${GREEN}${BOLD}✔ Triggered GitHub Actions for 'test/clean-weather-skill' (Expected: PASS / GREEN)${NC}"
 
-# 3. Push Bad (Toxic) Skill Branch
+# 4. Push Bad (Toxic) Skill Branch
 echo -e "\n${YELLOW}${BOLD}----------------------------------------------------------------------${NC}"
-echo -e "${YELLOW}${BOLD}🚀 2/2: PUSHING BAD SKILL SCENARIO (test/toxic-weather-skill)${NC}"
+echo -e "${YELLOW}${BOLD}🚀 STEP 3/3: PUSHING BAD SKILL SCENARIO (test/toxic-weather-skill)${NC}"
 echo -e "${YELLOW}${BOLD}----------------------------------------------------------------------${NC}"
 
 git checkout -B test/toxic-weather-skill main
@@ -169,7 +176,7 @@ echo -e "${GREEN}${BOLD}✔ Triggered GitHub Actions for 'test/toxic-weather-ski
 git checkout main
 
 echo -e "\n${GREEN}${BOLD}======================================================================${NC}"
-echo -e "${GREEN}${BOLD}✔ BOTH GITHUB ACTIONS PIPELINES TRIGGERED!${NC}"
+echo -e "${GREEN}${BOLD}✔ SKILL REGISTERED & BOTH GITHUB ACTIONS PIPELINES TRIGGERED!${NC}"
 echo -e "${GREEN}${BOLD}======================================================================${NC}"
 echo -e "👉 Watch both runs live in GitHub Actions:"
 echo -e "   ${CYAN}${BOLD}https://github.com/Cybersizemore/sec-agent-advent-supplychain-sec/actions${NC}\n"

@@ -70,7 +70,22 @@ def register_skill(skill_dir: str, asbom_path: str = "asbom.json") -> bool:
     print(f"[*] Packaged Agent Registry payload: {zip_path.name} ({zip_path.stat().st_size} bytes)")
 
     # 2. Save certified release manifest
-    gcp_project = os.getenv("GCP_PROJECT", "your-gcp-project-id")
+    gcp_project = os.getenv("GCP_PROJECT", "").strip()
+    gcloud_bin = shutil.which("gcloud")
+    if (not gcp_project or gcp_project == "your-gcp-project-id") and gcloud_bin:
+        try:
+            cfg_res = subprocess.run(
+                [gcloud_bin, "config", "get-value", "project"],
+                capture_output=True, text=True, timeout=10, check=False
+            )
+            detected_proj = cfg_res.stdout.strip()
+            if detected_proj and detected_proj != "(unset)":
+                gcp_project = detected_proj
+        except Exception:
+            pass
+    if not gcp_project:
+        gcp_project = "your-gcp-project-id"
+
     gcp_location = os.getenv("GCP_LOCATION", "global")
     agent_registry_urn = f"urn:skill:projects-{gcp_project}:locations:{gcp_location}:private-{skill_name}"
     agent_registry_resource = f"projects/{gcp_project}/locations/{gcp_location}/skills/private-{skill_name}"
@@ -109,7 +124,6 @@ def register_skill(skill_dir: str, asbom_path: str = "asbom.json") -> bool:
     print(f"[*] Published URN : {agent_registry_urn}")
 
     # 3. Live Google Cloud Agent Registry Publication (via gcloud CLI if available)
-    gcloud_bin = shutil.which("gcloud")
     if gcloud_bin and gcp_project != "your-gcp-project-id":
         print(f"\n[*] Attempting live registration via gcloud alpha agent-registry...")
         try:
@@ -122,30 +136,8 @@ def register_skill(skill_dir: str, asbom_path: str = "asbom.json") -> bool:
                 "--format=value(name)"
             ]
             check_res = subprocess.run(check_cmd, capture_output=True, text=True, timeout=15)
-            if check_res.returncode == 0:
-                rev_id = f"rev-{int(time.time())}"
-                print(f"[*] Skill container exists. Creating new revision '{rev_id}' in Agent Registry...")
-                rev_cmd = [
-                    gcloud_bin, "alpha", "agent-registry", "skills", "revisions", "create",
-                    rev_id,
-                    f"--skill=private-{skill_name}",
-                    f"--location={gcp_location}",
-                    f"--project={gcp_project}",
-                    f"--payload={zip_path.name}"
-                ]
-                subprocess.run(rev_cmd, capture_output=True, text=True, timeout=30)
-                # Update default revision
-                upd_cmd = [
-                    gcloud_bin, "alpha", "agent-registry", "skills", "update",
-                    f"private-{skill_name}",
-                    f"--project={gcp_project}",
-                    f"--location={gcp_location}",
-                    f"--default-revision=projects/{gcp_project}/locations/{gcp_location}/skills/private-{skill_name}/revisions/{rev_id}",
-                    "--target-state=active"
-                ]
-                subprocess.run(upd_cmd, capture_output=True, text=True, timeout=30)
-                print(f"[✔] Successfully updated and activated revision in Agent Registry!")
-            else:
+            if check_res.returncode != 0:
+                print(f"[*] Creating skill container 'private-{skill_name}' in Agent Registry...")
                 create_cmd = [
                     gcloud_bin, "alpha", "agent-registry", "skills", "create",
                     skill_name,
@@ -156,7 +148,29 @@ def register_skill(skill_dir: str, asbom_path: str = "asbom.json") -> bool:
                     f"--payload={zip_path.name}"
                 ]
                 subprocess.run(create_cmd, capture_output=True, text=True, timeout=30)
-                print(f"[✔] Successfully created skill in Agent Registry!")
+                print(f"[✔] Created skill container 'private-{skill_name}' in Agent Registry.")
+
+            rev_id = f"rev-{int(time.time())}"
+            print(f"[*] Publishing revision '{rev_id}' and activating in Agent Registry...")
+            rev_cmd = [
+                gcloud_bin, "alpha", "agent-registry", "skills", "revisions", "create",
+                rev_id,
+                f"--skill=private-{skill_name}",
+                f"--location={gcp_location}",
+                f"--project={gcp_project}",
+                f"--payload={zip_path.name}"
+            ]
+            subprocess.run(rev_cmd, capture_output=True, text=True, timeout=30)
+            upd_cmd = [
+                gcloud_bin, "alpha", "agent-registry", "skills", "update",
+                f"private-{skill_name}",
+                f"--project={gcp_project}",
+                f"--location={gcp_location}",
+                f"--default-revision=projects/{gcp_project}/locations/{gcp_location}/skills/private-{skill_name}/revisions/{rev_id}",
+                "--target-state=active"
+            ]
+            subprocess.run(upd_cmd, capture_output=True, text=True, timeout=30)
+            print(f"[✔] Successfully published and activated 'private-{skill_name}' ({rev_id}) in Agent Registry!")
         except Exception as e:
             print(f"[*] Note: Live cloud sync skipped or timed out: {e}")
 
