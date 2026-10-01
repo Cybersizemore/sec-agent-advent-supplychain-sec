@@ -1,118 +1,116 @@
-export interface DayLink {
-    label: string;
-    url: string;
-    description?: string;
-}
-
-export interface CodeSnippet {
-    filename: string;
-    language: string;
-    code: string;
-}
-
-export interface DayContent {
-    day: number;
-    title: string;
-    summary: string;
-    tags: string[];
-    icon: string;
-    resourceLink: string;
-    codeSnippets: CodeSnippet[];
-    links: DayLink[];
-    description: string;
-    videoURL: string;
-}
+import { DayContent } from '../types';
 
 export const day14: DayContent = {
     day: 14,
     title: "Supply-Chain Safety: Tool & Skill Verification",
-    summary: "Verify third-party agent skills and MCP tools in CI/CD pipelines using SkillSpector to block toxic capabilities and exfiltration before deployment.",
-    tags: ["Supply Chain", "Security", "CI/CD"],
+    summary: "Scan agent skills and MCP tool definitions for prompt injection, credential exfiltration, and unauthorized egress before publishing verified skills to Google Cloud Agent Registry.",
+    tags: ["Security", "Governance", "Supply Chain", "Tools"],
     icon: "🛡️",
-    resourceLink: "https://github.com/nvidia/skillspector",
+    resourceLink: "https://docs.cloud.google.com/agent-registry/overview",
     codeSnippets: [
         {
-            filename: "verify_skill_gate.py",
+            title: "Verify a Clean vs. Poisoned Skill in 60 Seconds",
+            filename: "verify_skill.py",
             language: "python",
-            code: `import json, os, subprocess, sys
+            code: `# Day 14: Verify a clean skill vs. a poisoned skill in under 60 seconds.
+# Quickstart (copy-paste into your terminal):
+#   git clone https://github.com/Cybersizemore/advent-agents-supplychain-simple.git
+#   cd advent-agents-supplychain-simple && ./demo-simple.sh
+#
+# Full Enterprise CI/CD + Google Cloud Agent Registry repo:
+#   https://github.com/Cybersizemore/sec-agent-advent-supplychain-sec
+
+import json, subprocess, sys, tempfile
 from pathlib import Path
 
-def verify_skill_gate(skill_dir: str, lockfile: str = "sat.lock") -> bool:
-    print(f"[*] Auditing skill package: {skill_dir}")
-    
-    # 1. Run SkillSpector static scan (optional: set SKILLSPECTOR_MODEL=gemini-3.1-pro-preview)
-    res = subprocess.run(
-        ["skillspector", "scan", skill_dir, "--no-llm", "--format", "json"],
-        capture_output=True, text=True
-    )
-    report = json.loads(res.stdout[res.stdout.find("{"):])
-    issues = report.get("issues", [])
+DEFAULT_AGENT_MODEL = "gemini-3.1-pro-preview"
 
-    # 2. Check for capability boundary breaches (e.g., hidden credential harvesting)
-    breaches = [i for i in issues if i.get("severity") in ("HIGH", "CRITICAL") or "Exfiltration" in i.get("category", "")]
-    if breaches:
-        print(f"\\n[FAIL] Toxic Skill Detected: Capability boundary breached in {skill_dir}!")
-        for b in breaches:
-            print(f"  - [{b['severity']}] {b['category']}: {b['pattern']} at line {b['location']['start_line']}")
-        print("[BLOCKED] Build blocked at PR. Prohibited from Agent Registry.")
+def verify_skill(skill_dir: str) -> bool:
+    """Run NVIDIA SkillSpector and block any skill with HIGH or CRITICAL findings."""
+    skill_path = Path(skill_dir).resolve()
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+        report_path = Path(tmp.name)
+
+    try:
+        proc = subprocess.run(
+            ["skillspector", "scan", str(skill_path), "--format", "json", "--output", str(report_path)],
+            capture_output=True, text=True, check=False,
+        )
+        report_text = report_path.read_text(encoding="utf-8").strip()
+        if not report_text:
+            print(f"[ERROR] SkillSpector failed to generate report: {proc.stderr.strip()}", file=sys.stderr)
+            return False
+        report = json.loads(report_text)
+    finally:
+        report_path.unlink(missing_ok=True)
+
+    findings = report.get("findings", [])
+    blockers = [f for f in findings if f.get("severity") in ("CRITICAL", "HIGH")]
+
+    print(f"\\n=== Scanning: {skill_path.name} ({report.get('verdict', 'UNKNOWN')}) ===")
+    for f in blockers:
+        loc = f.get("location", {})
+        print(f"  [BLOCKED] [{f['severity']}] {f['rule_id']}: {f['message']}")
+        print(f"            File: {loc.get('file')} (Line {loc.get('line')})")
+
+    if blockers:
+        print(f"[FAIL] {len(blockers)} HIGH/CRITICAL supply-chain threats blocked.")
         return False
 
-    # 3. Clean skill: verify declared SAT lockfile & generate ASBOM
-    print("[PASS] Capability scan matches declared scope.")
-    print(f"[PASS] SAT lockfile ({lockfile}) verified.")
-    asbom = {
-        "asbom_version": "1.0.0",
-        "skill": report.get("skill", {}).get("name", Path(skill_dir).name),
-        "status": "APPROVED",
-        "inspected_files": report.get("analysis_completeness", {}).get("fully_inspected_files", 1),
-        "target_registry": "Agent Registry"
-    }
-    Path("asbom.json").write_text(json.dumps(asbom, indent=2))
-    print("[PASS] ASBOM generated: asbom.json -> Approved for Agent Registry.")
+    print(f"[PASS] Zero HIGH/CRITICAL findings. Safe for ADK ({DEFAULT_AGENT_MODEL}) consumption.")
     return True
 
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else "./skill"
-    sys.exit(0 if verify_skill_gate(target) else 1)`
+    if len(sys.argv) != 2:
+        sys.exit("Usage: python3 verify_skill.py <path-to-skill>")
+    sys.exit(0 if verify_skill(sys.argv[1]) else 1)`
         }
     ],
     links: [
         {
-            label: "NVIDIA SkillSpector Repository",
+            label: "30-Second Local Kata: Agent Skill Verification",
+            url: "https://github.com/Cybersizemore/advent-agents-supplychain-simple",
+            description: "Run the local SkillSpector verification gate against clean and poisoned skills in under 30 seconds."
+        },
+        {
+            label: "Full CI/CD Gate + Google Cloud Agent Registry Pipeline",
+            url: "https://github.com/Cybersizemore/sec-agent-advent-supplychain-sec",
+            description: "End-to-end GitHub Actions security gate, sat.lock allowlist, ASBOM generator, and Agent Registry publisher."
+        },
+        {
+            label: "NVIDIA SkillSpector Open-Source Scanner",
             url: "https://github.com/nvidia/skillspector",
-            description: "Static and semantic security scanner for AI agent skills and tool definitions."
+            description: "Static AST, regex, and YARA scanner for detecting prompt injection and exfiltration in agent skills."
         },
         {
-            label: "ADK Tools and Governance",
-            url: "https://google.github.io/adk-docs/tools",
-            description: "Architecture guidelines for tool sandboxing, capability scoping, and agent boundaries."
-        },
-        {
-            label: "OWASP Top 10 for Agent Applications",
-            url: "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
-            description: "Industry risk standard for supply chain vulnerabilities and excessive agency in AI."
+            label: "Google Cloud Agent Registry Documentation",
+            url: "https://docs.cloud.google.com/agent-registry/overview",
+            description: "Discover, govern, and publish verified enterprise skills and MCP tools in Google Cloud."
         }
     ],
     description: `
 **Day 14 of Google's Advent of Agents — Season 3**
 
-Third-party agent skills and MCP tools execute with implicit privileges, exposing runtime environments to prompt injection, credential harvesting, and supply-chain tampering. Without automated verification in CI/CD, malicious skills breach capability boundaries before reaching production.
+Every third-party skill, MCP server, or \`SKILL.md\` instruction file you attach to an agent runs with your agent's implicit privileges. Unlike traditional software packages, an agent skill mixes executable Python or Bash with natural-language instructions that steer the reasoning loop directly. A compromised skill doesn't need a zero-day exploit: a hidden prompt override in \`SKILL.md\` or an uninspected \`os.environ\` read in a helper script is enough to exfiltrate credentials on the first turn.
 
 **How It Works**
 
-Embedding **SkillSpector** into pull request build gates enables automated validation of skill code and AST patterns against declared permission boundaries:
+Securing the agent supply chain requires treating every external skill and MCP tool definition as untrusted input until it passes an automated verification gate:
 
-- **Capability Boundary Scanning**: SkillSpector inspects skill code and \`SKILL.md\` definitions for environment harvesting (\`os.environ\`), unconstrained network sockets, and prompt injection patterns.
-- **SAT Lockfile Verification**: Detected capabilities are compared against a declared **SAT Lockfile** (\`sat.lock\`), immediately failing the build if undeclared tools, egress destinations, or privileged APIs are introduced.
-- **ASBOM Generation**: Skills that pass verification receive an **Agent Software Bill of Materials** (\`asbom.json\`) containing cryptographic file hashes and certified scopes, approving the package for publication to Agent Registry.
+- **Static AST and YARA Scanning**: Run **NVIDIA SkillSpector** against every skill directory to inspect both natural-language instructions (\`SKILL.md\`) for prompt injection or MCP tool poisoning and executable scripts (\`.py\`, \`.sh\`) for environment harvesting, obfuscated payloads, and shell execution.
+- **Capability Boundary and Lockfile Enforcement**: Compare every external domain and network call discovered in the skill against a strict allowlist (\`sat.lock\`), and generate an Agent Software Bill of Materials (\`asbom.json\`) recording SHA-256 file digests and declared capabilities.
+- **Automated CI/CD and Agent Registry Governance**: Block pull requests automatically when \`CRITICAL\` or \`HIGH\` severity findings appear, and publish only verified skills with cryptographic provenance to **Google Cloud Agent Registry** (\`cloudapiregistry.googleapis.com\`).
 
-In CI/CD, clean skills match declared scope and gain registry approval, while toxic skills attempting hidden exfiltration trigger immediate PR build failures.
+**Why Static + Semantic Verification Matters**
+
+Standard dependency scanners (\`pip-audit\`, \`npm audit\`) only check known CVEs in published library versions. They are completely blind to a freshly authored \`SKILL.md\` that instructs an ADK agent powered by \`gemini-3.1-pro-preview\` to dump \`os.environ\` and POST API keys to an external webhook. Combining AST analysis, YARA rules for prompt injection, and lockfile domain checks stops malicious skills in under 30 seconds before the agent ever loads them.
 
 **Resources:**
 
-- [NVIDIA SkillSpector Repository](https://github.com/nvidia/skillspector)
-- [ADK Tools and Governance](https://google.github.io/adk-docs/tools)
-- [OWASP Top 10 for Agent Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+- [30-Second Local Kata Repository (advent-agents-supplychain-simple)](https://github.com/Cybersizemore/advent-agents-supplychain-simple)
+- [Full CI/CD + Google Cloud Agent Registry Repository (sec-agent-advent-supplychain-sec)](https://github.com/Cybersizemore/sec-agent-advent-supplychain-sec)
+- [NVIDIA SkillSpector Open-Source Scanner](https://github.com/nvidia/skillspector)
+- [Google Cloud Agent Registry Documentation](https://docs.cloud.google.com/agent-registry/overview)
 `,
-    videoURL: "https://www.youtube.com/embed/LnTVBxhxWVA"
+    videoURL: "https://www.youtube.com/embed/9A-CzJNxZp0"
 };
